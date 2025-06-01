@@ -7,6 +7,7 @@ Este projeto é uma API RESTful para gerenciamento de clientes, desenvolvida com
 ## 🚀 Funcionalidades
 
   * **CRUD de Clientes**: Cadastrar, Buscar, Atualizar e Deletar clientes.
+  * **Segurança com JWT**: Endpoints protegidos com autenticação e autorização baseadas em JSON Web Tokens, garantindo que apenas usuários autorizados possam acessar os recursos.
   * **Validação de Dados**: Validação de entrada de dados para garantir a integridade.
   * **Comunicação Assíncrona**: Envio de e-mails de boas-vindas para novos clientes via fila de mensagens com RabbitMQ, garantindo resiliência e escalabilidade.
   * **Arquitetura Limpa**: Separação clara entre a lógica de negócio (domínio) e os detalhes de infraestrutura (adaptadores), promovendo alta coesão e baixo acoplamento.
@@ -29,6 +30,8 @@ Essa estrutura promove a testabilidade, flexibilidade para troca de tecnologias 
 
   * **Java 17+**
   * **Spring Boot 3.2.5+**
+  * **Spring Security** (para autenticação e autorização)
+  * **JJWT (Java JWT)** (para criação e validação de tokens JWT)
   * **Spring Data JPA**
   * **H2 Database** (para desenvolvimento e testes - facilmente substituível)
   * **Lombok**
@@ -137,9 +140,35 @@ Use as seguintes credenciais:
 
 ## 🧪 Testando a API
 
+Com a implementação de segurança, a maioria dos endpoints agora está protegida. Para testá-los, você primeiro precisa obter um token de autenticação e, em seguida, usá-lo nas requisições subsequentes.
+
 Você pode usar ferramentas como Postman, Insomnia ou `curl` para testar os endpoints.
 
-### Criar um Novo Cliente
+### 1. Obter um Token de Autenticação
+
+Envie uma requisição `POST` para o endpoint `/login` com as credenciais do usuário de demonstração.
+
+```bash
+POST http://localhost:8080/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
+```
+* **Resposta esperada:** `200 OK` com um corpo contendo o token JWT.
+  ```json
+  {
+      "token": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJDbGllbnRlIEFQSSIsInN1YiI6ImFkbWluIiwiaWF0IjoxNzE3MjgyODAwLCJleHAiOjE3MTcyODY0MDB9.xxxxxxxxxxxx",
+      "type": "Bearer"
+  }
+  ```
+* **Próximo Passo:** Copie o valor do campo `"token"` para usar nos próximos testes.
+
+### 2. Criar um Novo Cliente (Endpoint Público)
+
+Este endpoint continua público e não requer autenticação.
 
 ```bash
 POST http://localhost:8080/clientes
@@ -152,31 +181,28 @@ Content-Type: application/json
 }
 ```
 
-  * **Resposta esperada:** `201 Created` com os dados do cliente e o ID gerado.
-  * **Observação:** Verifique o console da aplicação para logs de envio e processamento do e-mail via RabbitMQ. Você também pode conferir a fila no console de gerenciamento do RabbitMQ.
+* **Resposta esperada:** `201 Created` com os dados do cliente e o ID gerado.
 
-### Buscar Todos os Clientes
+### 3. Buscar Cliente e Buscar Cliente por ID (Endpoint Público)
+
+Estes endpoints continuam públicos e não requerem autenticação.
 
 ```bash
 GET http://localhost:8080/clientes
 ```
-
-  * **Resposta esperada:** `200 OK` com uma lista de clientes.
-
-### Buscar Cliente por ID
-
 ```bash
 GET http://localhost:8080/clientes/{id_do_cliente}
 ```
 
-  * **Exemplo:** `GET http://localhost:8080/clientes/1`
-  * **Resposta esperada:** `200 OK` com os dados do cliente ou `404 Not Found`.
+* **Exemplo:** `GET http://localhost:8080/clientes/1`
+* **Resposta esperada:** `200 OK` com os dados do cliente.
 
-### Atualizar um Cliente
+### 4. Atualizar um Cliente (Endpoint Protegido)
 
 ```bash
 PUT http://localhost:8080/clientes/{id_do_cliente}
 Content-Type: application/json
+Authorization: Bearer {SEU_TOKEN_JWT}
 
 {
     "nome": "Anderson Alterado",
@@ -185,15 +211,16 @@ Content-Type: application/json
 }
 ```
 
-  * **Resposta esperada:** `200 OK` com os dados atualizados ou `404 Not Found`.
+* **Resposta esperada:** `200 OK` com os dados atualizados ou `404 Not Found`.
 
-### Deletar um Cliente
+### 5. Deletar um Cliente (Endpoint Protegido)
 
 ```bash
 DELETE http://localhost:8080/clientes/{id_do_cliente}
+Authorization: Bearer {SEU_TOKEN_JWT}
 ```
 
-  * **Resposta esperada:** `204 No Content` ou `404 Not Found`.
+* **Resposta esperada:** `204 No Content` ou `404 Not Found`.
 
 ## 🤝 Contribuição
 

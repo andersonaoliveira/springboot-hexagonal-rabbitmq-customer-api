@@ -7,6 +7,7 @@ This project is a RESTful API for customer management, developed with **Spring B
 ## 🚀 Features
 
 * **Customer CRUD**: Create, Retrieve, Update, and Delete customer records.
+* **JWT Security**: Endpoints are secured with JSON Web Token-based authentication and authorization, ensuring that only authorized users can access resources.
 * **Data Validation**: Input data validation to ensure data integrity.
 * **Asynchronous Communication**: Sending welcome emails to new customers via a message queue with RabbitMQ, ensuring resilience and scalability.
 * **Clean Architecture**: Clear separation between business logic (domain) and infrastructure details (adapters), promoting high cohesion and low coupling.
@@ -29,6 +30,8 @@ This structure promotes testability, flexibility for technology changes, and cla
 
 * **Java 17+**
 * **Spring Boot 3.2.5+**
+* **Spring Security** (for authentication and authorization)
+* **JJWT (Java JWT)** (for creating and validating JWT tokens)
 * **Spring Data JPA**
 * **H2 Database** (for development and testing - easily replaceable)
 * **Lombok**
@@ -137,9 +140,36 @@ Use the following credentials:
 
 ## 🧪 Testing the API
 
+With the security implementation, most endpoints are now secured. To test them, you must first obtain an authentication token and then use it in subsequent requests.
+
 You can use tools like Postman, Insomnia, or `curl` to test the endpoints.
 
-### Create a New Customer
+### 1. Obtain an Authentication Token
+
+Send a `POST` request to the `/login` endpoint with the demo user's credentials.
+
+```bash
+POST http://localhost:8080/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "password"
+}
+```
+
+* **Expected Response:** `200 OK` with a body containing the JWT.
+    ```json
+    {
+        "token": "eyJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJDbGllbnRlIEFQSSIsInN1YiI6ImFkbWluIiwiaWF0IjoxNzE3MjgyODAwLCJleHAiOjE3MTcyODY0MDB9.xxxxxxxxxxxx",
+        "type": "Bearer"
+    }
+    ```
+* **Next Step:** Copy the value from the `"token"` field to use in the next tests.
+
+### 2. Create a New Customer (Public Endpoint)
+
+This endpoint remains public and does not require authentication.
 
 ```bash
 POST http://localhost:8080/clientes
@@ -152,31 +182,30 @@ Content-Type: application/json
 }
 ```
 
-  * **Expected Response:** `201 Created` with customer data and generated ID.
-  * **Note:** Check your application console for logs indicating email sending and processing via RabbitMQ. You can also verify the queue in the RabbitMQ management console.
+* **Expected Response:** `201 Created` with the customer data and the generated ID.
 
-### Get All Customers
+### 3. Get Customers and Get Customer by ID (Public Endpoint)
+
+These endpoints remain public and do not require authentication.
 
 ```bash
 GET http://localhost:8080/clientes
 ```
-
-  * **Expected Response:** `200 OK` with a list of customers.
-
-### Get Customer by ID
-
 ```bash
 GET http://localhost:8080/clientes/{customer_id}
 ```
 
-  * **Example:** `GET http://localhost:8080/clientes/1`
-  * **Expected Response:** `200 OK` with customer data or `404 Not Found`.
+* **Example:** `GET http://localhost:8080/clientes/1`
+* **Expected Response:** `200 OK` with the customer data.
 
-### Update a Customer
+### 4. Update a Customer (Secured Endpoint)
+
+This endpoint is also secured and requires the token.
 
 ```bash
 PUT http://localhost:8080/clientes/{customer_id}
 Content-Type: application/json
+Authorization: Bearer {YOUR_JWT}
 
 {
     "nome": "Anderson Updated",
@@ -185,15 +214,18 @@ Content-Type: application/json
 }
 ```
 
-  * **Expected Response:** `200 OK` with updated data or `404 Not Found`.
+* **Expected Response:** `200 OK` with the updated data or `404 Not Found`.
 
-### Delete a Customer
+### 5. Delete a Customer (Secured Endpoint)
+
+This endpoint is secured and requires the token.
 
 ```bash
 DELETE http://localhost:8080/clientes/{customer_id}
+Authorization: Bearer {YOUR_JWT}
 ```
 
-  * **Expected Response:** `204 No Content` or `404 Not Found`.
+* **Expected Response:** `204 No Content` or `404 Not Found`.
 
 ## 🤝 Contribution
 
