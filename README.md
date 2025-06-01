@@ -58,13 +58,19 @@ This project adopts a layered testing strategy, leveraging the benefits of Hexag
     * **Verifies:** ORM mapping and database operations (using in-memory H2 Database).
     * **Tools:** JUnit 5, Spring Boot `@DataJpaTest`.
 
+* **Messaging Integration Tests (Mock):**
+    * **Focus:** Interaction between the outbound adapter (producer) and the messaging client in isolation, without requiring a real message broker.
+    * **Example:** `RabbitMQEmailServiceAdapterMockTest.java`.
+    * **Verifies:** The correct invocation of the `RabbitTemplate`, ensuring that the expected exchange, routing key, and properly serialized JSON payload are sent.
+    * **Tools:** JUnit 5, Spring Boot `@SpringBootTest`, `@MockBean`, Mockito.
+
 * **End-to-End (E2E) Tests:**
     * **Focus:** Full application flow, simulating the user journey, including API HTTP, database persistence, and asynchronous communication.
     * **Example:** `ClienteE2ETest`.
     * **Verifies:** HTTP requests, business logic, DB saving, and message sending/processing via RabbitMQ, from a complete flow perspective.
     * **Tools:** JUnit 5, Spring Boot `@SpringBootTest`, Testcontainers (for RabbitMQ and dedicated H2 database), `WebTestClient`, Awaitility (for asynchronous assertions).
 
-    **Note on Consumer E2E Test:**
+    * **Note on Consumer E2E Test:**
     To verify asynchronous message processing by `WelcomeEmailMessageListener` in E2E tests, a `public static AtomicBoolean messageProcessedForE2E` flag was temporarily added to the production listener's code. **It is important to note that this is a didactic technique to simplify test synchronization.** In a real production environment, the listener's code should not contain test-specific logic. Consumer processing verification would ideally be done through persistent side effects (e.g., database status) or with more advanced testing tools that replace the email service with a mock that logs calls.
 
 ### How to Run Tests:
