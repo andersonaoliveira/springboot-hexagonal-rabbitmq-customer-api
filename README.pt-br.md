@@ -36,6 +36,50 @@ Essa estrutura promove a testabilidade, flexibilidade para troca de tecnologias 
   * **RabbitMQ** (como message broker)
   * **Maven** (gerenciador de dependências)
 
+---
+
+## 🧪 Estratégia de Testes
+
+Este projeto adota uma estratégia de testes em camadas, alavancando os benefícios da Arquitetura Hexagonal para garantir a qualidade do código e a confiabilidade das funcionalidades.
+
+---
+
+### Tipos de Testes Implementados:
+
+* **Testes Unitários:**
+    * **Foco:** Lógica de negócio pura (Domínio).
+    * **Exemplo:** `ClienteServiceTest`.
+    * **Verifica:** Regras de negócio, validações e interações com as Portas (mocks).
+    * **Ferramentas:** JUnit 5, Mockito.
+
+* **Testes de Integração de Persistência:**
+    * **Foco:** Interação entre a camada de domínio e a persistência de dados.
+    * **Exemplo:** `ClienteJpaRepositoryAdapterTest`.
+    * **Verifica:** Mapeamento ORM e operações de banco de dados (utilizando H2 Database em memória).
+    * **Ferramentas:** JUnit 5, Spring Boot `@DataJpaTest`.
+
+* **Testes de Ponta a Ponta (E2E):**
+    * **Foco:** Fluxo completo da aplicação, simulando a jornada do usuário, incluindo a API HTTP, persistência em banco de dados e comunicação assíncrona.
+    * **Exemplo:** `ClienteE2ETest`.
+    * **Verifica:** Requisições HTTP, lógica de negócio, salvamento no DB e o envio/processamento de mensagens via RabbitMQ, do ponto de vista do fluxo completo.
+    * **Ferramentas:** JUnit 5, Spring Boot `@SpringBootTest`, Testcontainers (para RabbitMQ e banco de dados H2 dedicado), `WebTestClient`, Awaitility (para asserções assíncronas).
+    
+    **Observação sobre o Teste E2E do Consumidor:**
+    Para verificar o processamento de mensagens assíncronas pelo `WelcomeEmailMessageListener` em testes E2E, uma flag `public static AtomicBoolean messageProcessedForE2E` foi temporariamente adicionada ao código do listener de produção. **É importante notar que esta é uma técnica didática para simplificar a sincronização do teste.** Em um ambiente de produção real, o código do listener não deve conter lógica específica de teste. A verificação do processamento do consumidor idealmente seria feita através de efeitos colaterais persistentes (ex: status no banco de dados) ou com ferramentas de teste mais avançadas que substituem o serviço de e-mail por um mock que registra as chamadas.
+
+### Como Executar os Testes:
+
+Certifique-se de ter o **Docker em execução** para que o Testcontainers possa iniciar o contêiner do RabbitMQ.
+
+Na raiz do projeto, execute o seguinte comando Maven:
+
+```bash
+mvn clean install # Compila o projeto e suas classes de teste
+mvn test          # Executa todos os testes (unitários, integração e E2E)
+```
+
+---
+
 ## 📦 Como Rodar o Projeto
 
 ### Pré-requisitos

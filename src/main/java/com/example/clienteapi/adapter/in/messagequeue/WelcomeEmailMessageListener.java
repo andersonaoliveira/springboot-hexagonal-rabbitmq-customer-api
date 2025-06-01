@@ -6,12 +6,16 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Component
 @Slf4j
 public class WelcomeEmailMessageListener {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public static AtomicBoolean messageProcessedForE2E = new AtomicBoolean(false);
+
 
     @RabbitListener(queues = RabbitMQConfig.QUEUE_NAME)
     public void receiveMessage(String message) {
@@ -24,14 +28,13 @@ public class WelcomeEmailMessageListener {
             log.info("Para: {}", email);
             log.info("Nome: {}", nome);
             log.info("Processando envio de e-mail (simulado, pode demorar)...");
-            // Simulação de trabalho real (ex: chamar AWS SES SDK)
-            Thread.sleep(3000); // Simula um processamento demorado
+            Thread.sleep(3000);
             log.info("E-mail de boas-vindas enviado com sucesso para {}", email);
+
+            messageProcessedForE2E.set(true);
 
         } catch (Exception e) {
             log.error("Erro ao processar mensagem da fila: {}", e.getMessage(), e);
-            // Em um cenário real, você poderia rejogar a exceção para que a mensagem seja reenviada
-            // ou movida para uma DLQ (Dead Letter Queue) para reprocessamento.
         }
     }
 }
