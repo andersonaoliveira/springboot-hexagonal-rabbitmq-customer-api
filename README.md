@@ -8,6 +8,7 @@ This project is a RESTful API for customer management, developed with **Spring B
 
 * **Customer CRUD**: Create, Retrieve, Update, and Delete customer records.
 * **JWT Security**: Endpoints are secured with JSON Web Token-based authentication and authorization, ensuring that only authorized users can access resources.
+* **Interactive API Documentation**: Via Swagger UI (OpenAPI 3), allowing easy visualization and testing of endpoints.
 * **Data Validation**: Input data validation to ensure data integrity.
 * **Asynchronous Communication**: Sending welcome emails to new customers via a message queue with RabbitMQ, ensuring resilience and scalability.
 * **Clean Architecture**: Clear separation between business logic (domain) and infrastructure details (adapters), promoting high cohesion and low coupling.
@@ -32,11 +33,14 @@ This structure promotes testability, flexibility for technology changes, and cla
 * **Spring Boot 3.2.5+**
 * **Spring Security** (for authentication and authorization)
 * **JJWT (Java JWT)** (for creating and validating JWT tokens)
+* **springdoc-openapi** (for API documentation generation with Swagger UI)
 * **Spring Data JPA**
+* **PostgreSQL** (main application database)
 * **H2 Database** (for development and testing - easily replaceable)
 * **Lombok**
 * **Spring AMQP** (for RabbitMQ integration)
 * **RabbitMQ** (as a message broker)
+* **Docker** (for containerizing the application and services)
 * **Maven** (dependency manager)
 
 ---
@@ -97,7 +101,7 @@ Make sure you have the following installed:
 
 * **JDK 17+**
 * **Maven 3.x**
-* **Docker** (recommended for running RabbitMQ and H2, although H2 can run in-memory)
+* **Docker** (essential for running PostgreSQL and RabbitMQ)
 
 ### 1. Clone the Repository
 
@@ -106,16 +110,23 @@ git clone [https://github.com/andersonaoliveira/springboot-hexagonal-rabbitmq-cu
 cd springboot-hexagonal-rabbitmq-customer-api
 ````
 
-### 2\. Configure RabbitMQ with Docker
+### 2. Configure External Services with Docker
 
 Ensure Docker is running.
-Open a terminal and execute:
 
-```bash
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
-```
+  **a. RabbitMQ**
+  Open a terminal and execute:
+  ```bash
+  docker run -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management-alpine
+  ```
+  The RabbitMQ management interface will be available at `http://localhost:15672`.
 
-The RabbitMQ management interface will be available at `http://localhost:15672` (username: `guest`, password: `guest`).
+  **b. PostgreSQL**
+  In another terminal, execute:
+  ```bash
+  docker run -d --rm --name postgres-db -e POSTGRES_DB=clientedb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15-alpine
+  ```
+  This will start a PostgreSQL container with the `clientedb` database and `postgres/postgres` credentials.
 
 ### 3\. Run the Spring Boot Application
 
@@ -126,23 +137,18 @@ mvn clean install
 mvn spring-boot:run
 ```
 
-The application will start on port `8080`.
+The application will start on port `8080` and connect to the PostgreSQL and RabbitMQ containers.
 
-### 4\. Access H2 Console (Optional)
+### 4. Access H2 Console (For Tests)
 
-During development, you can access the H2 console at:
-`http://localhost:8080/h2-console`
-Use the following credentials:
-
-  * **JDBC URL:** `jdbc:h2:mem:clientedb`
-  * **User Name:** `sa`
-  * **Password:** (leave blank)
+H2 is now primarily used for persistence layer integration tests (`@DataJpaTest`). If you run the application with the test profile or execute these specific tests, an in-memory H2 database will be used. The H2 console for the main application database (`clientedb`) is no longer relevant as the main application uses PostgreSQL.
 
 ## 🧪 Testing the API
 
-With the security implementation, most endpoints are now secured. To test them, you must first obtain an authentication token and then use it in subsequent requests.
+You can explore and test the API interactively using **Swagger UI**, available at:
+`http://localhost:8080/swagger-ui/index.html`
 
-You can use tools like Postman, Insomnia, or `curl` to test the endpoints.
+Alternatively, with the security implementation, most endpoints are now secured. To test them with tools like Postman, Insomnia, or `curl`, you must first obtain an authentication token.
 
 ### 1. Obtain an Authentication Token
 
@@ -226,6 +232,26 @@ Authorization: Bearer {YOUR_JWT}
 ```
 
 * **Expected Response:** `204 No Content` or `404 Not Found`.
+
+## 🐳 Containerization with Docker
+
+This project is set up to be easily containerized using Docker.
+
+### Dockerfile
+
+A multi-stage `Dockerfile` is included in the project root. It is responsible for:
+1.  Compiling the Java application using a Maven image.
+2.  Creating a lean final image containing only the JRE and the application JAR.
+
+To build the API's Docker image, navigate to the project root and run:
+```bash
+docker build -t your-username/clienteapi .
+```
+(Replace `your-username/clienteapi` with your desired image name).
+
+### Docker Compose (Next Step)
+
+To orchestrate the API along with its dependencies (PostgreSQL and RabbitMQ) in a simplified manner, the next step in this project's evolution will be the implementation of a `docker-compose.yml` file. This will allow starting the entire environment with a single command.
 
 ## 🤝 Contribution
 
