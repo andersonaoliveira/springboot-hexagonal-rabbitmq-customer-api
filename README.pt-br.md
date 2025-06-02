@@ -8,6 +8,7 @@ Este projeto é uma API RESTful para gerenciamento de clientes, desenvolvida com
 
   * **CRUD de Clientes**: Cadastrar, Buscar, Atualizar e Deletar clientes.
   * **Segurança com JWT**: Endpoints protegidos com autenticação e autorização baseadas em JSON Web Tokens, garantindo que apenas usuários autorizados possam acessar os recursos.
+  * **Documentação Interativa da API**: Via Swagger UI (OpenAPI 3), permitindo fácil visualização e teste dos endpoints.
   * **Validação de Dados**: Validação de entrada de dados para garantir a integridade.
   * **Comunicação Assíncrona**: Envio de e-mails de boas-vindas para novos clientes via fila de mensagens com RabbitMQ, garantindo resiliência e escalabilidade.
   * **Arquitetura Limpa**: Separação clara entre a lógica de negócio (domínio) e os detalhes de infraestrutura (adaptadores), promovendo alta coesão e baixo acoplamento.
@@ -32,20 +33,19 @@ Essa estrutura promove a testabilidade, flexibilidade para troca de tecnologias 
   * **Spring Boot 3.2.5+**
   * **Spring Security** (para autenticação e autorização)
   * **JJWT (Java JWT)** (para criação e validação de tokens JWT)
+  * **springdoc-openapi** (para geração de documentação da API com Swagger UI)
   * **Spring Data JPA**
-  * **H2 Database** (para desenvolvimento e testes - facilmente substituível)
+  * **PostgreSQL** (banco de dados principal da aplicação)
+  * **H2 Database** (utilizado para testes de integração da camada de persistência)
   * **Lombok**
   * **Spring AMQP** (para integração com RabbitMQ)
   * **RabbitMQ** (como message broker)
+  * **Docker** (para containerização da aplicação e serviços)
   * **Maven** (gerenciador de dependências)
-
----
 
 ## 🧪 Estratégia de Testes
 
 Este projeto adota uma estratégia de testes em camadas, alavancando os benefícios da Arquitetura Hexagonal para garantir a qualidade do código e a confiabilidade das funcionalidades.
-
----
 
 ### Tipos de Testes Implementados:
 
@@ -87,8 +87,6 @@ mvn clean install # Compila o projeto e suas classes de teste
 mvn test          # Executa todos os testes (unitários, integração e E2E)
 ```
 
----
-
 ## 📦 Como Rodar o Projeto
 
 ### Pré-requisitos
@@ -97,25 +95,32 @@ Certifique-se de ter instalado:
 
   * **JDK 17+**
   * **Maven 3.x**
-  * **Docker** (recomendado para rodar o RabbitMQ e o H2, embora o H2 possa ser em memória)
+  * **Docker** (essencial para rodar o PostgreSQL e o RabbitMQ)
 
 ### 1\. Clonar o Repositório
 
 ```bash
-git clone https://github.com/andersonaoliveira/springboot-hexagonal-rabbitmq-customer-api.git
+git clone [https://github.com/andersonaoliveira/springboot-hexagonal-rabbitmq-customer-api.git](https://github.com/andersonaoliveira/springboot-hexagonal-rabbitmq-customer-api.git)
 cd springboot-hexagonal-rabbitmq-customer-api
-```
+````
 
-### 2\. Configurar o RabbitMQ com Docker
+### 2\. Configurar Serviços Externos com Docker
 
 Certifique-se de que o Docker esteja rodando.
-Abra um terminal e execute:
 
-```bash
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
-```
+  **a. RabbitMQ**
+  Abra um terminal e execute:
+  ```bash
+  docker run -d --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management-alpine
+  ```
+  A interface de gerenciamento do RabbitMQ estará disponível em `http://localhost:15672`.
 
-A interface de gerenciamento do RabbitMQ estará disponível em `http://localhost:15672` (usuário: `guest`, senha: `guest`).
+  **b. PostgreSQL**
+  Em outro terminal, execute:
+  ```bash
+  docker run -d --rm --name postgres-db -e POSTGRES_DB=clientedb -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:15-alpine
+  ```
+  Isso iniciará um container PostgreSQL com o banco `clientedb` e as credenciais `postgres/postgres`.
 
 ### 3\. Rodar a Aplicação Spring Boot
 
@@ -125,24 +130,18 @@ Navegue até o diretório raiz do projeto e execute:
 mvn clean install
 mvn spring-boot:run
 ```
+A aplicação será iniciada na porta `8080` e se conectará ao container PostgreSQL e RabbitMQ.
 
-A aplicação será iniciada na porta `8080`.
+### 4\. Acessar o Console H2 (Para Testes)
 
-### 4\. Acessar o Console H2 (Opcional)
-
-Durante o desenvolvimento, você pode acessar o console do H2 em:
-`http://localhost:8080/h2-console`
-Use as seguintes credenciais:
-
-  * **JDBC URL:** `jdbc:h2:mem:clientedb`
-  * **User Name:** `sa`
-  * **Password:** (deixe em branco)
+O H2 agora é usado primariamente para os testes de integração da camada de persistência (`@DataJpaTest`). Se você rodar a aplicação com o perfil de teste ou executar esses testes específicos, o H2 em memória será utilizado. O console H2 para o banco de dados principal (`clientedb`) não é mais relevante, pois a aplicação principal usa PostgreSQL.
 
 ## 🧪 Testando a API
 
-Com a implementação de segurança, a maioria dos endpoints agora está protegida. Para testá-los, você primeiro precisa obter um token de autenticação e, em seguida, usá-lo nas requisições subsequentes.
+Você pode explorar e testar a API interativamente usando o **Swagger UI**, disponível em:
+`http://localhost:8080/swagger-ui/index.html`
 
-Você pode usar ferramentas como Postman, Insomnia ou `curl` para testar os endpoints.
+Alternativamente, com a implementação de segurança, a maioria dos endpoints agora está protegida. Para testá-los com ferramentas como Postman, Insomnia ou `curl`, você primeiro precisa obter um token de autenticação.
 
 ### 1. Obter um Token de Autenticação
 
@@ -222,6 +221,26 @@ Authorization: Bearer {SEU_TOKEN_JWT}
 
 * **Resposta esperada:** `204 No Content` ou `404 Not Found`.
 
+## 🐳 Containerização com Docker
+
+Este projeto está configurado para ser facilmente containerizado usando Docker.
+
+### Dockerfile
+
+Um `Dockerfile` multi-estágio está incluído na raiz do projeto. Ele é responsável por:
+1.  Compilar a aplicação Java usando uma imagem Maven.
+2.  Criar uma imagem final leve, contendo apenas a JRE e o JAR da aplicação.
+
+Para construir a imagem Docker da API, navegue até a raiz do projeto e execute:
+```bash
+docker build -t seu-usuario/clienteapi .
+```
+(Substitua `seu-usuario/clienteapi` pelo nome desejado para sua imagem).
+
+### Docker Compose (Próximo Passo)
+
+Para orquestrar a API junto com suas dependências (PostgreSQL e RabbitMQ) de forma simplificada, o próximo passo na evolução deste projeto será a implementação de um arquivo `docker-compose.yml`. Isso permitirá iniciar todo o ambiente com um único comando.
+
 ## 🤝 Contribuição
 
 Contribuições são bem-vindas\! Sinta-se à vontade para abrir issues ou pull requests no repositório.
@@ -229,8 +248,6 @@ Contribuições são bem-vindas\! Sinta-se à vontade para abrir issues ou pull 
 ## 📝 Licença
 
 Este projeto está licenciado sob a [Licença MIT](https://www.google.com/search?q=https://github.com/andersonaoliveira/springboot-hexagonal-rabbitmq-customer-api/blob/main/LICENSE), conforme detalhado no arquivo `LICENSE`.
-
------
 
 ## 👤 Sobre o Autor
 
