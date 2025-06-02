@@ -3,7 +3,7 @@ package com.example.clienteapi.domain.service;
 import com.example.clienteapi.domain.model.Cliente;
 import com.example.clienteapi.domain.port.in.ClienteServicePort;
 import com.example.clienteapi.domain.port.out.ClienteRepositoryPort;
-import com.example.clienteapi.domain.port.out.EmailServicePort; // Depende da interface
+import com.example.clienteapi.domain.port.out.EmailServicePort;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 public class ClienteService implements ClienteServicePort {
 
     private final ClienteRepositoryPort clienteRepositoryPort;
-    private final EmailServicePort emailServicePort; // Injetada via interface
+    private final EmailServicePort emailServicePort;
 
     public ClienteService(ClienteRepositoryPort clienteRepositoryPort, EmailServicePort emailServicePort) {
         this.clienteRepositoryPort = clienteRepositoryPort;
@@ -25,7 +25,7 @@ public class ClienteService implements ClienteServicePort {
             throw new IllegalArgumentException("Email já cadastrado.");
         }
         Cliente savedCliente = clienteRepositoryPort.save(cliente);
-        emailServicePort.sendWelcomeEmail(savedCliente); // Chama a porta, sem saber quem a implementa
+        emailServicePort.sendWelcomeEmail(savedCliente);
         return savedCliente;
     }
 

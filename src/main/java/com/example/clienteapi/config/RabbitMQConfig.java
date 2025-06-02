@@ -17,7 +17,7 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue queue() {
-        return new Queue(QUEUE_NAME, true); // durable = true (persiste a fila no RabbitMQ)
+        return new Queue(QUEUE_NAME, true);
     }
 
     @Bean
@@ -30,7 +30,6 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(queue).to(exchange).with(ROUTING_KEY);
     }
 
-    // Configura o RabbitTemplate para usar JSON como formato de mensagem
     @Bean
     public MessageConverter jsonMessageConverter() {
         return new Jackson2JsonMessageConverter();
