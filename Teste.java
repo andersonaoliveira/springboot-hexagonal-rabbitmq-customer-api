@@ -1,125 +1,82 @@
-package com.converter;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.Scanner;
 
-import java.io.BufferedWriter; import java.io.FileWriter; import java.io.IOException; import java.time.LocalDate; import java.time.LocalDateTime; import java.time.ZoneOffset; import java.time.format.DateTimeFormatter; import java.util.List;
+public class Application {
 
-public class OfxExporter {
+    public static void main(String[] args) {
+        Properties config = new Properties();
+        Scanner scanner = new Scanner(System.in);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
-private static final DateTimeFormatter OFX_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-private static final int MAX_LINHAS_POR_ARQUIVO = 30000;
+        try {
+            config.load(new FileInputStream("src/main/resources/application.properties"));
 
-public static void salvar(List<ExtratoLinha> linhas, String caminhoBase) {
-    int totalArquivos = (int) Math.ceil((double) linhas.size() / MAX_LINHAS_POR_ARQUIVO);
+            String outputDir = config.getProperty("output.directory");
+            String dbUrl = config.getProperty("db.url");
+            String dbUser = config.getProperty("db.user");
+            String dbPassword = config.getProperty("db.password");
 
-    for (int i = 0; i < totalArquivos; i++) {
-        int inicio = i * MAX_LINHAS_POR_ARQUIVO;
-        int fim = Math.min(inicio + MAX_LINHAS_POR_ARQUIVO, linhas.size());
-        List<ExtratoLinha> subLista = linhas.subList(inicio, fim);
+            System.out.print("Digite a data inicial (yyyy-MM-dd): ");
+            LocalDate dataInicio = LocalDate.parse(scanner.nextLine(), formatter);
 
-        String caminhoArquivo = caminhoBase.replace(".ofx", "_parte" + (i + 1) + ".ofx");
-        salvarArquivo(subLista, caminhoArquivo);
+            System.out.print("Digite a data final (yyyy-MM-dd): ");
+            LocalDate dataFim = LocalDate.parse(scanner.nextLine(), formatter);
+
+            if (dataFim.isBefore(dataInicio)) {
+                System.err.println("❌ A data final não pode ser anterior à data inicial.");
+                return;
+            }
+
+            if (dataFim.isAfter(dataInicio.plusYears(1))) {
+                System.err.println("❌ O intervalo não pode ultrapassar 1 ano.");
+                return;
+            }
+
+            System.out.println("Conectando ao banco de dados...");
+            List<ExtratoLinha> dados = ExtratoRepository.buscarDoBanco(dbUrl, dbUser, dbPassword, dataInicio, dataFim);
+
+            System.out.println("Linhas recuperadas: " + dados.size());
+            System.out.println("Salvando arquivos em: " + outputDir);
+
+            long inicio = System.currentTimeMillis();
+            OfxExporter.salvar(dados, outputDir + "/extrato.ofx");
+
+            long fim = System.currentTimeMillis();
+            System.out.printf("Conversão finalizada em %.2f segundos.%n", (fim - inicio) / 1000.0);
+
+        } catch (Exception e) {
+            System.err.println("❌ Erro: " + e.getMessage());
+        }
     }
 }
 
-private static void salvarArquivo(List<ExtratoLinha> linhas, String caminhoArquivo) {
-    try (BufferedWriter writer = new BufferedWriter(new FileWriter(caminhoArquivo))) {
+public static List<ExtratoLinha> buscarDoBanco(String url, String user, String password, LocalDate inicio, LocalDate fim) {
+    List<ExtratoLinha> linhas = new ArrayList<>();
 
-        writer.write("OFXHEADER:100\n");
-        writer.write("DATA:OFXSGML\n");
-        writer.write("VERSION:102\n");
-        writer.write("SECURITY:NONE\n");
-        writer.write("ENCODING:USASCII\n");
-        writer.write("CHARSET:1252\n");
-        writer.write("COMPRESSION:NONE\n");
-        writer.write("OLDFILEUID:NONE\n");
-        writer.write("NEWFILEUID:NONE\n\n");
-        writer.write("<OFX>\n");
+    String sql = "SELECT data, descricao, tipo, valor, saldo FROM extrato WHERE data BETWEEN ? AND ? ORDER BY data";
 
-        writer.write("    <SIGNONMSGSRSV1>\n");
-        writer.write("        <SONRS>\n");
-        writer.write("            <STATUS>\n");
-        writer.write("                <CODE>0\n");
-        writer.write("                <SEVERITY>INFO\n");
-        writer.write("            </STATUS>\n");
-        writer.write("            <DTSERVER>" + dataAtualFormatada() + "[-3:GMT]\n");
-        writer.write("            <LANGUAGE>ENG\n");
-        writer.write("            <FI>\n");
-        writer.write("                <ORG>SANTANDER\n");
-        writer.write("                <FID>SANTANDER\n");
-        writer.write("            </FI>\n");
-        writer.write("        </SONRS>\n");
-        writer.write("    </SIGNONMSGSRSV1>\n");
+    try (Connection conn = DriverManager.getConnection(url, user, password);
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
 
-        writer.write("    <BANKMSGSRSV1>\n");
-        writer.write("        <STMTTRNRS>\n");
-        writer.write("            <TRNUID>1\n");
-        writer.write("            <STATUS>\n");
-        writer.write("                <CODE>0\n");
-        writer.write("                <SEVERITY>INFO\n");
-        writer.write("            </STATUS>\n");
-        writer.write("            <STMTRS>\n");
-        writer.write("                <CURDEF>BRC\n");
-        writer.write("                <BANKACCTFROM>\n");
-        writer.write("                    <BANKID>033\n");
-        writer.write("                    <ACCTID>0319130084955\n");
-        writer.write("                    <ACCTTYPE>CHECKING\n");
-        writer.write("                </BANKACCTFROM>\n");
-        writer.write("                <BANKTRANLIST>\n");
+        stmt.setDate(1, java.sql.Date.valueOf(inicio));
+        stmt.setDate(2, java.sql.Date.valueOf(fim));
 
-        String dataInicio = linhas.isEmpty() ? dataAtualFormatada() : formatarDataOFX(linhas.get(0).data);
-        String dataFim = linhas.isEmpty() ? dataAtualFormatada() : formatarDataOFX(linhas.get(linhas.size() - 1).data);
+        try (ResultSet rs = stmt.executeQuery()) {
+            while (rs.next()) {
+                String data = rs.getString("data");
+                String descricao = rs.getString("descricao");
+                String tipo = rs.getString("tipo");
+                double valor = rs.getDouble("valor");
+                double saldo = rs.getDouble("saldo");
 
-        writer.write("                    <DTSTART>" + dataInicio + "[-3:GMT]\n");
-        writer.write("                    <DTEND>" + dataFim + "[-3:GMT]\n");
-
-        int fitId = 100000;
-        for (ExtratoLinha linha : linhas) {
-            writer.write("                    <STMTTRN>\n");
-            writer.write("                        <TRNTYPE>" + (linha.tipo.equalsIgnoreCase("CREDITO") ? "CREDIT" : "DEBIT") + "\n");
-            writer.write("                        <DTPOSTED>" + formatarDataOFX(linha.data) + "[-3:GMT]\n");
-            writer.write("                        <TRNAMT>" + (linha.tipo.equalsIgnoreCase("DEBITO") ? "-" : "") + String.format("%.2f", linha.valor).replace(",", ".") + "\n");
-            writer.write("                        <FITID>" + fitId + "\n");
-            writer.write("                        <CHECKNUM>" + fitId + "\n");
-            writer.write("                        <PAYEEID>0\n");
-            writer.write("                        <MEMO>" + linha.descricao + "\n");
-            writer.write("                    </STMTTRN>\n");
-            fitId++;
+                linhas.add(new ExtratoLinha(data, descricao, tipo, valor, saldo));
+            }
         }
 
-        writer.write("                </BANKTRANLIST>\n");
-
-        double saldoFinal = linhas.isEmpty() ? 0.0 : linhas.get(linhas.size() - 1).saldo;
-        writer.write("                <LEDGERBAL>\n");
-        writer.write("                    <BALAMT>" + String.format("%.2f", saldoFinal).replace(",", ".") + "\n");
-        writer.write("                    <DTASOF>" + dataFim + "[-3:GMT]\n");
-        writer.write("                </LEDGERBAL>\n");
-
-        writer.write("            </STMTRS>\n");
-        writer.write("        </STMTTRNRS>\n");
-        writer.write("    </BANKMSGSRSV1>\n");
-        writer.write("</OFX>\n");
-
-        System.out.println("✅ OFX gerado com sucesso: " + caminhoArquivo);
-
-    } catch (IOException e) {
-        System.err.println("❌ Erro ao gerar OFX: " + e.getMessage());
+    } catch (SQLException e) {
+        System.err.println("❌ Erro ao acessar o banco de dados: " + e.getMessage());
     }
-}
 
-private static String formatarDataOFX(String dataOriginal) {
-    if (dataOriginal.matches("\\d{14}\-\\d+:GMT\")) {
-        return dataOriginal.substring(0, 14);
-    }
-    if (dataOriginal.matches("\\d{14}")) {
-        return dataOriginal;
-    }
-    LocalDateTime dateTime = LocalDate.parse(dataOriginal, DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        .atTime(12, 0);
-    return dateTime.format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+    return linhas;
 }
-
-private static String dataAtualFormatada() {
-    return LocalDateTime.now(ZoneOffset.of("-03:00")).format(OFX_DATE_FORMAT);
-}
-
-}
-
